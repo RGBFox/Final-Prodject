@@ -1,18 +1,22 @@
 package main
 
 import (
+	"RGBFox/backend/database"
+	"RGBFox/backend/server"
+	"fmt"
 	"log"
 	"net/http"
-	"os"
 )
 
 func main() {
-	Port := os.Getenv("TODO_PORT")
-	if Port == "" {
-		Port = "7540"
+	port := server.Init()
+	err := database.Init()
+	if err != nil {
+		log.Fatal(err)
+		fmt.Print(err)
 	}
-
-	http.Handle("/", http.FileServer(http.Dir("./web")))
-
-	log.Fatal(http.ListenAndServe(":"+Port, nil))
+	err = http.ListenAndServe(":"+port, nil)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

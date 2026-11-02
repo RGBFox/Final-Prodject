@@ -12,5 +12,6 @@ func Init() string {
 	}
 
 	http.Handle("/", http.FileServer(http.Dir("./web")))
+	http.Handle("/api/nextdate", http.FileServer(http.Dir("./web")))
 	return port
 }

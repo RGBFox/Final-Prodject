@@ -5,8 +5,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	_ "modernc.org/sqlite"
 )
 
 func NextDate(now time.Time, dstart string, repeat string) (string, error) {
@@ -15,30 +13,65 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	}
 	rul := strings.Split(repeat, " ")
 	check, err := time.Parse("20060102", dstart)
+	if err != nil {
+		return "", err
+	}
 
-	var nexttime string
 	switch rul[0] {
 	case "d":
+		if len(rul) != 2 {
+			return "", fmt.Errorf("неверная длина")
+		}
 		add, err := strconv.Atoi(rul[1])
 		if err != nil {
 			return "", err
 		}
-		check.AddDate(0, 0, add)
-		for !afterNow(check, now) {
-			check.AddDate(0, 0, 1)
+		check = check.AddDate(0, 0, add)
+		for afterNow(check, now) {
+			check = check.AddDate(0, 0, 1)
 		}
 
 	case "y":
-		check.AddDate(1, 0, 0)
-		for !afterNow(check, now) {
-			check.AddDate(1, 0, 0)
+		check = check.AddDate(1, 0, 0)
+		for afterNow(check, now) {
+			check = check.AddDate(1, 0, 0)
 		}
-	case "w":
 
+	case "w":
+		if len(rul) != 2 {
+			return "", fmt.Errorf("неверная длина")
+		}
+		needDay := strings.Split(rul[1], ",")
+		for afterNow(check, now) {
+			check = check.AddDate(0, 0, 1)
+		}
+		for ok, _ := weekDay(check, needDay); !ok; ok, _ = weekDay(check, needDay) {
+			ok, err = weekDay(check, needDay)
+			if err != nil {
+				return "", err
+			}
+			check = check.AddDate(0, 0, 1)
+		}
 	case "m":
+		if len(rul) != 2 {
+			return "", fmt.Errorf("неверная длина")
+		}
+		needDay := strings.Split(rul[1], ",")
+		for afterNow(check, now) {
+			check = check.AddDate(0, 0, 1)
+		}
+		for ok, _ := mounthDay(check, needDay); !ok; ok, _ = mounthDay(check, needDay) {
+			ok, err = mounthDay(check, needDay)
+			if err != nil {
+				return "", err
+			}
+			check = check.AddDate(0, 0, 1)
+		}
+	case "":
+		return "удали задачу", nil
 
 	default:
-		return "удали задачу", err
+		return "недопустимый символ", nil
 	}
 
 	if err != nil {
@@ -48,5 +81,53 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 }
 
 func afterNow(date, now time.Time) bool {
-	return time.Now().After(date)
+	return now.After(date)
+}
+
+func weekDay(date time.Time, days []string) (bool, error) {
+
+	for _, b := range days {
+		a, err := strconv.Atoi(b)
+		if err != nil {
+			return false, err
+		}
+		if a < 1 || a > 7 {
+			return false, fmt.Errorf("день недели должен быть от 1 до 7")
+		}
+	}
+
+	for _, b := range days {
+		a, err := strconv.Atoi(b)
+		if err != nil {
+			return false, err
+		}
+		if int(date.Weekday()) == a {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func mounthDay(date time.Time, days []string) (bool, error) {
+
+	for _, b := range days {
+		_, err := strconv.Atoi(b)
+		if err != nil {
+			return false, err
+		}
+		if int(date.Day()) > 31 {
+			return false, fmt.Errorf("в месяце не может быть больше 31 дня")
+		}
+	}
+
+	for _, b := range days {
+		a, err := strconv.Atoi(b)
+		if err != nil {
+			return false, err
+		}
+		if int(date.Day()) == a {
+			return true, nil
+		}
+	}
+	return false, nil
 }

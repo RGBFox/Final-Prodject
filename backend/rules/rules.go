@@ -9,7 +9,7 @@ import (
 
 func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 	if repeat == "" {
-		return "", fmt.Errorf("не может быть пустой строки")
+		return "", fmt.Errorf("необходимо удалить задачу")
 	}
 	rul := strings.Split(repeat, " ")
 	check, err := time.Parse("20060102", dstart)
@@ -48,7 +48,10 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		for afterNow(check, now) {
 			check = check.AddDate(0, 0, 1)
 		}
-		for ok, _ := weekDay(check, needDay); !ok; ok, _ = weekDay(check, needDay) {
+		for ok, err := weekDay(check, needDay); !ok; ok, _ = weekDay(check, needDay) {
+			if err != nil {
+				return "", err
+			}
 			ok, err = weekDay(check, needDay)
 			if err != nil {
 				return "", err
@@ -63,15 +66,16 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		for afterNow(check, now) {
 			check = check.AddDate(0, 0, 1)
 		}
-		for ok, _ := mounthDay(check, needDay); !ok; ok, _ = mounthDay(check, needDay) {
+		for ok, err := mounthDay(check, needDay); !ok; ok, _ = mounthDay(check, needDay) {
+			if err != nil {
+				return "", err
+			}
 			ok, err = mounthDay(check, needDay)
 			if err != nil {
 				return "", err
 			}
 			check = check.AddDate(0, 0, 1)
 		}
-	case "":
-		return "удали задачу", nil
 
 	default:
 		return "недопустимый символ", nil
@@ -94,6 +98,7 @@ func weekDay(date time.Time, days []string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
+
 		if a < 1 || a > 7 {
 			return false, fmt.Errorf("день недели должен быть от 1 до 7")
 		}
@@ -104,7 +109,12 @@ func weekDay(date time.Time, days []string) (bool, error) {
 		if err != nil {
 			return false, err
 		}
-		if int(date.Weekday()) == a {
+
+		wd := int(date.Weekday())
+		if wd == 0 {
+			wd = 7
+		}
+		if wd == a {
 			return true, nil
 		}
 	}
@@ -114,12 +124,12 @@ func weekDay(date time.Time, days []string) (bool, error) {
 func mounthDay(date time.Time, days []string) (bool, error) {
 
 	for _, b := range days {
-		_, err := strconv.Atoi(b)
+		a, err := strconv.Atoi(b)
 		if err != nil {
 			return false, err
 		}
-		if int(date.Day()) > 31 {
-			return false, fmt.Errorf("в месяце не может быть больше 31 дня")
+		if a > 31 || a < -2 || a == 0 {
+			return false, fmt.Errorf("в месяце не может быть больше 31 дня или меньше -2")
 		}
 	}
 

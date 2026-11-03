@@ -26,9 +26,12 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		if err != nil {
 			return "", err
 		}
+		if add > 400 {
+			return "", fmt.Errorf("слишком большая длина дня")
+		}
 		check = check.AddDate(0, 0, add)
 		for afterNow(check, now) {
-			check = check.AddDate(0, 0, 1)
+			check = check.AddDate(0, 0, add)
 		}
 
 	case "y":

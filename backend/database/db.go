@@ -8,7 +8,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func Init() error {
+// Init выбирает файл SQLite и создаёт таблицу и индекс, если файла ещё нет.
+// Возвращает ошибку и путь к файлу БД.
+func Init() (error, string) {
 	dbFile := "scheduler.db"
 	path := os.Getenv("TODO_DBFILE")
 	if path != "" {
@@ -22,12 +24,14 @@ func Init() error {
 		install = true
 	}
 
+	// Временный пул нужен для подготовки БД; рабочий пул создаётся в main.
 	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
-		return err
+		return err, ""
 	}
 	defer db.Close()
 	if install {
+		// Индекс по date предназначен для поиска и сортировки задач по дате.
 		res, err := db.Exec(`
 	CREATE TABLE scheduler (
    		id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,10 +44,10 @@ func Init() error {
 	ON scheduler (date);
 	`)
 		if err != nil {
-			return err
+			return err, ""
 		}
 		log.Print("база данных создана", res)
 
 	}
-	return nil
+	return nil, dbFile
 }

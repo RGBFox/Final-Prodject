@@ -10,15 +10,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
-
-	dbFile := "scheduler.db"
-	db, err := sql.Open("sqlite", dbFile)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
-		return
-	}
-	defer db.Close()
+// doneTaskHandler удаляет выполненную разовую задачу
+// или переносит повторяющуюся задачу на следующую дату.
+func (s *Server) doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 	search := q.Get("id")
@@ -33,17 +27,27 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 		query += ` WHERE id = :id`
 		args = append(args, sql.Named("id", search))
 	}
-	res := db.QueryRow(query, args...)
+	res := s.db.QueryRow(query, args...)
 	var arg Task
-	err = res.Scan(&arg.ID, &arg.Date, &arg.Title, &arg.Comment, &arg.Repeat)
+	err := res.Scan(&arg.ID, &arg.Date, &arg.Title, &arg.Comment, &arg.Repeat)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
+		writeJSON(w, http.StatusBadRequest, fmt.Errorf("такой задачи не существует"))
 		return
 	}
 	if arg.Repeat == "" {
-		_, err := db.Exec(`DELETE FROM scheduler WHERE id = :id`, sql.Named("id", arg.ID))
+		res, err := s.db.Exec(`DELETE FROM scheduler WHERE id = :id`, sql.Named("id", arg.ID))
 		if err != nil {
-			writeJSON(w, http.StatusInternalServerError, err)
+			writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка удаления задачи"))
+			return
+		}
+		// Успешный DELETE может не удалить ни одной строки, если такого ID нет.
+		n, err := res.RowsAffected()
+		if err != nil {
+			writeJSON(w, http.StatusBadRequest, fmt.Errorf("такой задачи не существует"))
+			return
+		}
+		if n == 0 {
+			writeJSON(w, http.StatusBadRequest, fmt.Errorf("задача не найдена"))
 			return
 		}
 
@@ -52,27 +56,22 @@ func doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	now := time.Now()
+	// Новую дату считаем от сохранённой даты задачи с учётом сегодняшнего дня.
 	arg.Date, err = rules.NextDate(now, arg.Date, arg.Repeat)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
+		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка поиска даты"))
 		return
 	}
-	_, err = updateTask(&arg)
+	err = s.updateTask(&arg)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
+		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("Ошибка обновления задачи"))
 		return
 	}
 	writeJSON(w, http.StatusOK, struct{}{})
 }
-func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
-	dbFile := "scheduler.db"
-	db, err := sql.Open("sqlite", dbFile)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
-		return
-	}
-	defer db.Close()
+// deleteTaskHandler удаляет задачу по ID из URL и сообщает, если запись не найдена.
+func (s *Server) deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 
 	q := r.URL.Query()
 	search := q.Get("id")
@@ -80,14 +79,14 @@ func deleteTaskHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, fmt.Errorf("не указан id"))
 		return
 	}
-	res, err := db.Exec(`DELETE FROM scheduler WHERE id = :id`, sql.Named("id", search))
+	res, err := s.db.Exec(`DELETE FROM scheduler WHERE id = :id`, sql.Named("id", search))
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
+		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("Ошибка удаления задачи"))
 		return
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, err)
+		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("Ошибка поиска задачи"))
 		return
 	}
 	if n == 0 {

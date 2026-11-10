@@ -107,7 +107,7 @@ docker run -d --name todo -p 7540:7540 -e TODO_PASSWORD=12345 -e TODO_DBFILE=/da
 
 Linux / macOS / Git Bash (из папки проекта):
 
-docker run -d --name todo -p 7540:7540 -e TODO_PASSWORD=12345 -e TODO_DBFILE=/data/scheduler.db -v "$(pwd):/data" todo-app
+MSYS_NO_PATHCONV=1 docker run -d --name todo -p 7540:7540 -e TODO_PASSWORD=12345 -e TODO_DBFILE=/data/scheduler.db -v "$(pwd):/data" todo-app
 
 Пояснения:
 

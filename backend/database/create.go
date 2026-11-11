@@ -19,7 +19,7 @@ type Task struct {
 }
 
 // Init выбирает файл SQLite и создаёт таблицу и индекс, если файла ещё нет.
-// Возвращает ошибку и путь к файлу БД.
+// Возвращает ошибку и файл БД.
 func Init() (error, *sql.DB) {
 	dbFile := "scheduler.db"
 	path := os.Getenv("TODO_DBFILE")

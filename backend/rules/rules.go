@@ -41,6 +41,9 @@ func NextDate(now time.Time, dstart string, repeat string) (string, error) {
 		}
 
 	case "y":
+		if len(rul) != 1 {
+			return "", fmt.Errorf("правило y не принимает параметры")
+		}
 		check = check.AddDate(1, 0, 0)
 		for afterNow(check, now) {
 			check = check.AddDate(1, 0, 0)

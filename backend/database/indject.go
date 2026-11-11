@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -34,7 +35,7 @@ func SearchByIDTask(db *sql.DB, id int) (Task, error) {
 	var arg Task
 	err := res.Scan(&arg.ID, &arg.Date, &arg.Title, &arg.Comment, &arg.Repeat)
 	if err != nil {
-		return arg, fmt.Errorf("такой задачи не существует")
+		return arg, err
 	}
 	return arg, nil
 }
@@ -68,10 +69,55 @@ func UpdateTask(task *Task, db *sql.DB) (int, error) {
 	// UPDATE без совпадений не считается ошибкой SQL, поэтому проверяем число строк.
 	n, err := res.RowsAffected()
 	if err != nil {
-		return http.StatusBadRequest, err
+		return http.StatusInternalServerError, err
 	}
 	if n == 0 {
 		return http.StatusBadRequest, sql.ErrNoRows
 	}
 	return http.StatusOK, nil
+}
+
+// SearchByIDTask возвращает одну задачи по параметрам или общий список задач.
+func SearchTask(db *sql.DB, search string) ([]Task, int, error) {
+	query := `SELECT id, date, title, comment, repeat FROM scheduler ORDER BY date LIMIT 50`
+	var args []any
+	// Инициализированный пустой срез кодируется в JSON как [], а не null.
+	tasks := []Task{}
+
+	if search != "" {
+		if t, err := time.Parse("02.01.2006", search); err == nil {
+			// поиск по дате
+			query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE date = :date ORDER BY date LIMIT 50`
+			// Дату из пользовательского формата приводим к формату хранения в SQLite.
+			args = append(args, sql.Named("date", t.Format("20060102")))
+		} else {
+			// поиск по тексту
+			query = `SELECT id, date, title, comment, repeat FROM scheduler WHERE title LIKE :pattern OR comment LIKE :pattern ORDER BY date LIMIT 50`
+			// Знаки % вокруг параметра позволяют искать совпадение внутри текста.
+			args = append(args, sql.Named("pattern", "%"+search+"%"))
+		}
+	}
+
+	res, err := db.Query(query, args...)
+	if err != nil {
+		log.Println(err)
+		return tasks, http.StatusInternalServerError, fmt.Errorf("Ошибка базы данных")
+	}
+	defer res.Close()
+	for res.Next() {
+		var arg Task
+		err = res.Scan(&arg.ID, &arg.Date, &arg.Title, &arg.Comment, &arg.Repeat)
+		if err != nil {
+			log.Println(err)
+			return tasks, http.StatusInternalServerError, fmt.Errorf("такой задачи не существует")
+		}
+		tasks = append(tasks, arg)
+	}
+	// Next может завершиться из-за ошибки чтения; проверяем её перед отправкой ответа.
+	if err := res.Err(); err != nil {
+		log.Printf("ошибки чтения: %v\n", err)
+		return tasks, http.StatusInternalServerError, fmt.Errorf("данные не полностью считались")
+	}
+	return tasks, http.StatusOK, nil
+
 }

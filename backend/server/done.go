@@ -29,7 +29,7 @@ func (s *Server) doneTaskHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	arg, err := database.SearchByIDTask(s.db, id)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, err)
+		writeJSON(w, http.StatusBadRequest, fmt.Errorf("задача не найдена"))
 		return
 	}
 

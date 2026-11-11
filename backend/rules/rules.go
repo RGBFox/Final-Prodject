@@ -150,7 +150,7 @@ func weekDay(date time.Time, days []string) (bool, error) {
 // parseMonthDays разбирает дни месяца: 1–31, -1 (последний), -2 (предпоследний).
 func parseMonthDays(s string) ([]int, error) {
 	var res []int
-	for _, p := range strings.Split(s, ",") {
+	for p := range strings.SplitSeq(s, ",") {
 		n, err := strconv.Atoi(p)
 		if err != nil {
 			return nil, err

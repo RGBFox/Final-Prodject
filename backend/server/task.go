@@ -1,9 +1,10 @@
 package server
 
 import (
-	"database/sql"
+	"RGBFox/backend/database"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -24,22 +25,11 @@ func (s *Server) addTaskHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, err)
 		return
 	}
-	id, err := s.AddTask(&task)
+	id, err := database.AddTask(&task, s.db)
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка Добавления задачи"))
+		log.Printf("ошибка добавления задачи: %v\n", err)
+		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка добавления задачи"))
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"id": strconv.FormatInt(id, 10)})
-}
-
-// AddTask сохраняет подготовленную задачу и возвращает ID, назначенный SQLite.
-func (s *Server) AddTask(task *Task) (int64, error) {
-	var id int64
-	query := `INSERT INTO scheduler (date, title, comment, repeat)
-	          VALUES (:date, :title, :comment, :repeat)`
-	res, err := s.db.Exec(query, sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat))
-	if err == nil {
-		id, err = res.LastInsertId()
-	}
-	return id, err
 }

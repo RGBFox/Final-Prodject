@@ -1,9 +1,12 @@
 package server
 
 import (
+	"RGBFox/backend/database"
 	"database/sql"
 	"fmt"
+	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -52,6 +55,7 @@ func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// Next может завершиться из-за ошибки чтения; проверяем её перед отправкой ответа.
 	if err := res.Err(); err != nil {
+		log.Printf("ошибки чтения: %v\n", err)
 		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("данные не полностью считались"))
 		return
 	}
@@ -66,23 +70,19 @@ func (s *Server) getTasksHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getTaskHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	search := q.Get("id")
+
 	if search == "" {
 		writeJSON(w, http.StatusBadRequest, fmt.Errorf("некоректное поле"))
 		return
 	}
-	query := `SELECT id, date, title, comment, repeat FROM scheduler`
-	var args []any
-
-	if search != "" {
-		query += ` WHERE id = :id`
-		args = append(args, sql.Named("id", search))
-	}
-	res := s.db.QueryRow(query, args...)
-	var arg Task
-	// QueryRow сообщает об ошибке запроса или отсутствии строки при вызове Scan.
-	err := res.Scan(&arg.ID, &arg.Date, &arg.Title, &arg.Comment, &arg.Repeat)
+	id, err := strconv.Atoi(search)
 	if err != nil {
-		writeJSON(w, http.StatusBadRequest, fmt.Errorf("некоректное поле"))
+		writeJSON(w, http.StatusBadRequest, fmt.Errorf("неверный формат id"))
+		return
+	}
+	arg, err := database.SearchByIDTask(s.db, id)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, err)
 		return
 	}
 

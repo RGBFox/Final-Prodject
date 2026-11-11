@@ -1,7 +1,7 @@
 package server
 
 import (
-	"database/sql"
+	"RGBFox/backend/database"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -30,36 +30,10 @@ func (s *Server) updateTaskHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = s.updateTask(&task)
-	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка обновления данных"))
+	res, err := database.UpdateTask(&task, s.db)
+	if !checkDatabaseErrors(w, r, res, err) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, struct{}{})
-}
-
-// updateTask записывает поля задачи и возвращает sql.ErrNoRows, если её ID не найден.
-func (s *Server) updateTask(task *Task) error {
-
-	query := `UPDATE scheduler 
-	SET date = :date,
-	  title= :title,
-	  comment= :comment,
-	  repeat=  :repeat 
-	WHERE id = :id;
-	`
-	res, err := s.db.Exec(query, sql.Named("id", task.ID), sql.Named("date", task.Date), sql.Named("title", task.Title), sql.Named("comment", task.Comment), sql.Named("repeat", task.Repeat))
-	if err != nil {
-		return err
-	}
-	// UPDATE без совпадений не считается ошибкой SQL, поэтому проверяем число строк.
-	n, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return sql.ErrNoRows
-	}
-	return nil
+	writeJSON(w, res, struct{}{})
 }

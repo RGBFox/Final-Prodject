@@ -8,9 +8,19 @@ import (
 	_ "modernc.org/sqlite"
 )
 
+// Task описывает задачу в БД и JSON-ответах API.
+// Date хранится в формате 20060102, Repeat содержит правило повторения.
+type Task struct {
+	ID      string `json:"id"`
+	Date    string `json:"date"`
+	Title   string `json:"title"`
+	Comment string `json:"comment"`
+	Repeat  string `json:"repeat"`
+}
+
 // Init выбирает файл SQLite и создаёт таблицу и индекс, если файла ещё нет.
 // Возвращает ошибку и путь к файлу БД.
-func Init() (error, string) {
+func Init() (error, *sql.DB) {
 	dbFile := "scheduler.db"
 	path := os.Getenv("TODO_DBFILE")
 	if path != "" {
@@ -27,9 +37,8 @@ func Init() (error, string) {
 	// Временный пул нужен для подготовки БД; рабочий пул создаётся в main.
 	db, err := sql.Open("sqlite", dbFile)
 	if err != nil {
-		return err, ""
+		return err, nil
 	}
-	defer db.Close()
 	if install {
 		// Индекс по date предназначен для поиска и сортировки задач по дате.
 		res, err := db.Exec(`
@@ -44,10 +53,10 @@ func Init() (error, string) {
 	ON scheduler (date);
 	`)
 		if err != nil {
-			return err, ""
+			return err, nil
 		}
 		log.Print("база данных создана", res)
 
 	}
-	return nil, dbFile
+	return nil, db
 }

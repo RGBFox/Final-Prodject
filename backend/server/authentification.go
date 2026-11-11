@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"time"
@@ -56,6 +57,7 @@ func (s *Server) signinHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(jwtSecret(pass))
 	if err != nil {
+		log.Printf("ошибка созданяя токена: %v\n", err)
 		writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка создания токена"))
 		return
 	}

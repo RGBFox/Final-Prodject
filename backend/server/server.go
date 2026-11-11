@@ -1,6 +1,7 @@
 package server
 
 import (
+	"RGBFox/backend/database"
 	"database/sql"
 	"fmt"
 	"net/http"
@@ -34,13 +35,7 @@ func Init(db *sql.DB) string {
 
 // Task описывает задачу в БД и JSON-ответах API.
 // Date хранится в формате 20060102, Repeat содержит правило повторения.
-type Task struct {
-	ID      string `json:"id"`
-	Date    string `json:"date"`
-	Title   string `json:"title"`
-	Comment string `json:"comment"`
-	Repeat  string `json:"repeat"`
-}
+type Task = database.Task
 
 // taskHandler выбирает операцию над одной задачей по HTTP-методу.
 func (s *Server) taskHandler(w http.ResponseWriter, r *http.Request) {

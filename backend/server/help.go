@@ -4,6 +4,7 @@ import (
 	"RGBFox/backend/rules"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 // nextDateHandler вычисляет следующую дату по параметрам now, date и repeat.
 func nextDateHandler(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	if !q.Has("now") {
+	if !q.Has("now") || q.Get("now") == "" {
 		http.Error(w, "нужен параметр now", http.StatusBadRequest)
 		return
 	}
@@ -50,6 +51,7 @@ func nextDateHandler(w http.ResponseWriter, r *http.Request) {
 // Значение типа error преобразуется в объект с полем error.
 func writeJSON(w http.ResponseWriter, status int, v any) {
 	if err, ok := v.(error); ok {
+		log.Printf("ошибка: %v\n", err)
 		v = map[string]string{"error": err.Error()}
 	}
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
@@ -90,4 +92,19 @@ func prepareTask(task *Task, now time.Time) error {
 		}
 	}
 	return nil
+}
+
+func checkDatabaseErrors(w http.ResponseWriter, r *http.Request, typeerr int, err error) bool {
+	if err != nil {
+		if typeerr == http.StatusInternalServerError {
+			log.Printf("ошибка обновления данных: %v\n", err)
+			writeJSON(w, http.StatusInternalServerError, fmt.Errorf("ошибка обновления данных на стороне сервера"))
+			return false
+		} else {
+			writeJSON(w, http.StatusBadRequest, fmt.Errorf("ошибка обновления данных"))
+			return false
+		}
+	}
+	return true
+
 }
